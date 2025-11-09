@@ -1,0 +1,157 @@
+-- Car Rental Management System - Database Schema
+-- SQL Server
+
+-- =============================================
+-- Table: Customers
+-- =============================================
+CREATE TABLE Customers (
+    CustomerId INT PRIMARY KEY IDENTITY(1,1),
+    FirstName NVARCHAR(50) NOT NULL,
+    LastName NVARCHAR(50) NOT NULL,
+    Email NVARCHAR(100) NOT NULL UNIQUE,
+    Phone NVARCHAR(20) NOT NULL,
+    LicenseNumber NVARCHAR(50) NOT NULL UNIQUE,
+    Address NVARCHAR(200),
+    City NVARCHAR(50),
+    ZipCode NVARCHAR(10),
+    DateOfBirth DATE NOT NULL,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETDATE(),
+    IsActive BIT DEFAULT 1
+);
+
+-- =============================================
+-- Table: VehicleCategories
+-- =============================================
+CREATE TABLE VehicleCategories (
+    CategoryId INT PRIMARY KEY IDENTITY(1,1),
+    CategoryName NVARCHAR(50) NOT NULL UNIQUE,
+    Description NVARCHAR(200),
+    PricePerDay DECIMAL(10,2) NOT NULL
+);
+
+-- =============================================
+-- Table: Vehicles
+-- =============================================
+CREATE TABLE Vehicles (
+    VehicleId INT PRIMARY KEY IDENTITY(1,1),
+    CategoryId INT NOT NULL,
+    Brand NVARCHAR(50) NOT NULL,
+    Model NVARCHAR(50) NOT NULL,
+    Year INT NOT NULL,
+    Color NVARCHAR(30),
+    LicensePlate NVARCHAR(20) NOT NULL UNIQUE,
+    Mileage INT NOT NULL DEFAULT 0,
+    FuelType NVARCHAR(20) NOT NULL, -- Petrol, Diesel, Electric, Hybrid
+    TransmissionType NVARCHAR(20) NOT NULL, -- Manual, Automatic
+    SeatingCapacity INT NOT NULL,
+    ImageUrl NVARCHAR(500),
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Available', -- Available, Rented, Maintenance, Retired
+    DailyRate DECIMAL(10,2) NOT NULL,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (CategoryId) REFERENCES VehicleCategories(CategoryId)
+);
+
+-- =============================================
+-- Table: Bookings
+-- =============================================
+CREATE TABLE Bookings (
+    BookingId INT PRIMARY KEY IDENTITY(1,1),
+    CustomerId INT NOT NULL,
+    VehicleId INT NOT NULL,
+    BookingDate DATETIME2 DEFAULT GETDATE(),
+    StartDate DATE NOT NULL,
+    EndDate DATE NOT NULL,
+    PickupLocation NVARCHAR(100) NOT NULL,
+    DropoffLocation NVARCHAR(100) NOT NULL,
+    TotalDays AS DATEDIFF(DAY, StartDate, EndDate) PERSISTED,
+    DailyRate DECIMAL(10,2) NOT NULL,
+    TotalAmount DECIMAL(10,2) NOT NULL,
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Reserved', -- Reserved, Confirmed, Active, Completed, Cancelled
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (CustomerId) REFERENCES Customers(CustomerId),
+    FOREIGN KEY (VehicleId) REFERENCES Vehicles(VehicleId),
+    CONSTRAINT CK_Bookings_Dates CHECK (EndDate > StartDate)
+);
+
+-- =============================================
+-- Table: Payments
+-- =============================================
+CREATE TABLE Payments (
+    PaymentId INT PRIMARY KEY IDENTITY(1,1),
+    BookingId INT NOT NULL,
+    PaymentDate DATETIME2 DEFAULT GETDATE(),
+    Amount DECIMAL(10,2) NOT NULL,
+    PaymentMethod NVARCHAR(50) NOT NULL, -- CreditCard, DebitCard, Cash, BankTransfer
+    TransactionId NVARCHAR(100),
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', -- Pending, Completed, Failed, Refunded
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (BookingId) REFERENCES Bookings(BookingId)
+);
+
+-- =============================================
+-- Table: MaintenanceRecords
+-- =============================================
+CREATE TABLE MaintenanceRecords (
+    MaintenanceId INT PRIMARY KEY IDENTITY(1,1),
+    VehicleId INT NOT NULL,
+    MaintenanceDate DATE NOT NULL,
+    Description NVARCHAR(500) NOT NULL,
+    Cost DECIMAL(10,2) NOT NULL,
+    ServiceProvider NVARCHAR(100),
+    NextMaintenanceDate DATE,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (VehicleId) REFERENCES Vehicles(VehicleId)
+);
+
+-- =============================================
+-- Table: Users (Admin/Staff)
+-- =============================================
+CREATE TABLE Users (
+    UserId INT PRIMARY KEY IDENTITY(1,1),
+    Username NVARCHAR(50) NOT NULL UNIQUE,
+    Email NVARCHAR(100) NOT NULL UNIQUE,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    FullName NVARCHAR(100) NOT NULL,
+    Role NVARCHAR(20) NOT NULL, -- Admin, Manager, Staff
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    LastLogin DATETIME2
+);
+
+-- =============================================
+-- Indexes for Performance
+-- =============================================
+CREATE INDEX IX_Vehicles_Status ON Vehicles(Status);
+CREATE INDEX IX_Bookings_CustomerId ON Bookings(CustomerId);
+CREATE INDEX IX_Bookings_VehicleId ON Bookings(VehicleId);
+CREATE INDEX IX_Bookings_Dates ON Bookings(StartDate, EndDate);
+CREATE INDEX IX_Payments_BookingId ON Payments(BookingId);
+CREATE INDEX IX_Customers_Email ON Customers(Email);
+
+-- =============================================
+-- Sample Data
+-- =============================================
+
+-- Insert Vehicle Categories
+INSERT INTO VehicleCategories (CategoryName, Description, PricePerDay) VALUES
+('Economy', 'Budget-friendly compact cars', 30.00),
+('Sedan', 'Comfortable mid-size sedans', 50.00),
+('SUV', 'Spacious sport utility vehicles', 80.00),
+('Luxury', 'Premium luxury vehicles', 150.00),
+('Van', 'Large passenger vans', 90.00);
+
+-- Insert Admin User (Password: Admin@123)
+INSERT INTO Users (Username, Email, PasswordHash, FullName, Role) VALUES
+('admin', 'admin@carrental.com', 'AQAAAAEAACcQAAAAEDummyHashForDemo123', 'System Administrator', 'Admin');
+
+-- Insert Sample Vehicles
+INSERT INTO Vehicles (CategoryId, Brand, Model, Year, Color, LicensePlate, Mileage, FuelType, TransmissionType, SeatingCapacity, DailyRate, Status) VALUES
+(1, 'Toyota', 'Corolla', 2022, 'White', 'ABC-1234', 15000, 'Petrol', 'Automatic', 5, 30.00, 'Available'),
+(2, 'Honda', 'Accord', 2023, 'Black', 'XYZ-5678', 8000, 'Hybrid', 'Automatic', 5, 50.00, 'Available'),
+(3, 'Ford', 'Explorer', 2023, 'Blue', 'SUV-9012', 12000, 'Petrol', 'Automatic', 7, 80.00, 'Available'),
+(4, 'BMW', '5 Series', 2024, 'Silver', 'LUX-3456', 5000, 'Diesel', 'Automatic', 5, 150.00, 'Available'),
+(5, 'Mercedes', 'Sprinter', 2022, 'White', 'VAN-7890', 25000, 'Diesel', 'Manual', 12, 90.00, 'Available');
